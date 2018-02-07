@@ -1375,7 +1375,7 @@ class Element(Plugin):
                 if os.environ.get(override) is not None:
                     environment[override] = os.environ.get(override)
 
-            flags = SandboxFlags.NETWORK_ENABLED | SandboxFlags.INTERACTIVE
+            flags = SandboxFlags.NETWORK_ENABLED | SandboxFlags.INTERACTIVE | SandboxFlags.INHERIT_UID
 
             if command:
                 argv = [arg for arg in command]
