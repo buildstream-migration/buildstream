@@ -204,6 +204,7 @@ class Element(Plugin):
 
         self.__runtime_dependencies = []        # Direct runtime dependency Elements
         self.__build_dependencies = []          # Direct build dependency Elements
+        self.__reverse_dependencies = []  # Direct reverse dependency Elements
         self.__sources = []                     # List of Sources
         self.__weak_cache_key = None            # Our cached weak cache key
         self.__strict_cache_key = None          # Our cached cache key for strict builds
@@ -979,6 +980,9 @@ class Element(Plugin):
             dependency = Element._new_from_meta(meta_dep)
             element.__build_dependencies.append(dependency)
 
+        for build_dep in element.dependencies(scope=Scope.BUILD):
+            build_dep.__reverse_dependencies.append(element)
+
         return element
 
     # _clear_meta_elements_cache()
@@ -1373,7 +1377,7 @@ class Element(Plugin):
             source = sources.pop()
             source._generate_key(sources)
 
-        self._update_state()
+        self.__update_state_recursively()
 
     # _track():
     #
@@ -1580,7 +1584,7 @@ class Element(Plugin):
         self.__assemble_scheduled = False
         self.__assemble_done = True
 
-        self._update_state()
+        self.__update_state_recursively()
 
         if self._get_workspace() and self._cached_success():
             assert utils._is_main_process(), \
@@ -1807,7 +1811,7 @@ class Element(Plugin):
     def _pull_done(self):
         self.__pull_done = True
 
-        self._update_state()
+        self.__update_state_recursively()
 
     # _pull():
     #
@@ -2914,6 +2918,20 @@ class Element(Plugin):
             sourcecache = self._get_context().sourcecache
             if not sourcecache.contains(sources[-1]):
                 sources[-1]._cache(sources[:-1])
+
+    # __update_state_recursively()
+    #
+    # Update the state of all reverse dependencies, recursively.
+    #
+    def __update_state_recursively(self):
+        old_cache_key = self.__cache_key
+        old_weak_cache_key = self.__weak_cache_key
+
+        self._update_state()
+
+        if self.__cache_key != old_cache_key or old_weak_cache_key != self.__weak_cache_key:
+            for rdep in self.__reverse_dependencies:
+                rdep.__update_state_recursively()
 
 
 def _overlap_error_detail(f, forbidden_overlap_elements, elements):
