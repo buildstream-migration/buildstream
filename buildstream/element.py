@@ -81,10 +81,12 @@ from collections.abc import Mapping
 import contextlib
 from contextlib import contextmanager
 from functools import partial
+import itertools
 import tempfile
 import string
 
 from . import _yaml
+from ._collections import UniquePriorityQueue
 from ._variables import Variables
 from ._versions import BST_CORE_ARTIFACT_VERSION
 from ._exceptions import BstError, LoadError, LoadErrorReason, ImplError, \
@@ -135,6 +137,7 @@ class Element(Plugin):
     __defaults = None             # The defaults from the yaml file and project
     __instantiated_elements = {}  # A hash of Element by MetaElement
     __redundant_source_refs = []  # A list of (source, ref) tuples which were redundantly specified
+    __counter = itertools.count()
 
     BST_ARTIFACT_VERSION = 0
     """The element plugin's artifact version
@@ -202,9 +205,20 @@ class Element(Plugin):
         and creating directory names and such.
         """
 
+        # Node id
+        # With two elements with different node ids, we have the guarantee that
+        # looking at the element wit the smallest node_id before the element
+        # with a bigger node id is a valid topological ordering in the graph of
+        # all elements.
+        # This is thanks to how we create the elements from _new_from_meta,
+        # which visits all elements in a topological order.
+        self.__node_id = next(self.__counter)
+
         self.__runtime_dependencies = []        # Direct runtime dependency Elements
         self.__build_dependencies = []          # Direct build dependency Elements
-        self.__reverse_dependencies = []  # Direct reverse dependency Elements
+        self.__direct_reverse_dependencies_for_build = []  # Direct reverse dependency Elements
+        self.__direct_reverse_dependencies_for_runtime = []
+        self.__remaining_runtime_deps_cache_keys_to_discover = 0
         self.__sources = []                     # List of Sources
         self.__weak_cache_key = None            # Our cached weak cache key
         self.__strict_cache_key = None          # Our cached cache key for strict builds
@@ -976,12 +990,14 @@ class Element(Plugin):
         for meta_dep in meta.dependencies:
             dependency = Element._new_from_meta(meta_dep)
             element.__runtime_dependencies.append(dependency)
+            dependency.__direct_reverse_dependencies_for_runtime.append(element)
+
+        element.__remaining_runtime_deps_cache_keys_to_discover = len(meta.dependencies)
+
         for meta_dep in meta.build_dependencies:
             dependency = Element._new_from_meta(meta_dep)
             element.__build_dependencies.append(dependency)
-
-        for build_dep in element.dependencies(scope=Scope.BUILD):
-            build_dep.__reverse_dependencies.append(element)
+            dependency.__direct_reverse_dependencies_for_build.append(element)
 
         return element
 
@@ -1262,6 +1278,23 @@ class Element(Plugin):
             if self.__cache_key is None:
                 # Strong cache key could not be calculated yet
                 return
+
+            if self.__remaining_runtime_deps_cache_keys_to_discover == 0:
+                queue = UniquePriorityQueue()
+
+                queue.push(self.__node_id, self)
+
+                while queue:
+                    elem = queue.pop()
+
+                    for rdep in elem.__direct_reverse_dependencies_for_runtime:
+                        rdep.__remaining_runtime_deps_cache_keys_to_discover -= 1
+
+                        if (
+                                rdep.__remaining_runtime_deps_cache_keys_to_discover == 0 and
+                                rdep.__cache_key is not None
+                        ):
+                            queue.push(rdep.__node_id, rdep)
 
     # _get_display_key():
     #
@@ -2933,14 +2966,37 @@ class Element(Plugin):
     # Update the state of all reverse dependencies, recursively.
     #
     def __update_state_recursively(self):
-        old_cache_key = self.__cache_key
-        old_weak_cache_key = self.__weak_cache_key
+        queue = UniquePriorityQueue()
+        queue.push(self.__node_id, self)
 
-        self._update_state()
+        def enqueue_skiplevel(element):
+            for rdep in element.__direct_reverse_dependencies_for_runtime:
+                if rdep.__remaining_runtime_deps_cache_keys_to_discover == 0:
+                    for rrdep in rdep.__direct_reverse_dependencies_for_build:
+                        queue.push(rrdep.__node_id, rrdep)
 
-        if self.__cache_key != old_cache_key or old_weak_cache_key != self.__weak_cache_key:
-            for rdep in self.__reverse_dependencies:
-                rdep.__update_state_recursively()
+                    # If something depending on us at runtime is ready too, their
+                    # reverse dependencies might be ready to we therefore need
+                    # to recurse
+                    enqueue_skiplevel(rdep)
+
+        while queue:
+            element = queue.pop()
+
+            old_cache_key = element.__cache_key
+            old_weak_cache_key = element.__weak_cache_key
+
+            element._update_state()
+
+            if element.__cache_key != old_cache_key or old_weak_cache_key != element.__weak_cache_key:
+                for rdep in element.__direct_reverse_dependencies_for_build:
+                    queue.push(rdep.__node_id, rdep)
+
+            if element.__remaining_runtime_deps_cache_keys_to_discover == 0 and element.__cache_key != old_cache_key:
+                # We have discovered our cache key and have all our runtime
+                # dependencies ready.  Elements having a dependency at runtime
+                # on us can might be able to compute their own cache keys
+                enqueue_skiplevel(element)
 
 
 def _overlap_error_detail(f, forbidden_overlap_elements, elements):
