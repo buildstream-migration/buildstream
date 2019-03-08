@@ -1230,16 +1230,16 @@ def test_external_list(cli, datafiles, tmpdir_factory):
 # but just successfully builds the workspaced element and happily
 # exits without completing the build.
 #
-BUILD_ALL_DIR = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)),
-    "workspaced-build-dep",
+TEST_DIR = os.path.join(
+    os.path.dirname(os.path.realpath(__file__))
 )
 
 
-@pytest.mark.datafiles(BUILD_ALL_DIR)
+@pytest.mark.datafiles(TEST_DIR)
+@pytest.mark.parametrize("case", [("workspaced-build-dep"), ("workspaced-runtime-dep")])
 @pytest.mark.parametrize("strict", [("strict"), ("non-strict")])
-def test_build_all(cli, tmpdir, datafiles, strict):
-    project = str(datafiles)
+def test_build_all(cli, tmpdir, datafiles, case, strict):
+    project = os.path.join(str(datafiles), case)
     workspace = os.path.join(str(tmpdir), 'workspace')
 
     # Configure strict mode
