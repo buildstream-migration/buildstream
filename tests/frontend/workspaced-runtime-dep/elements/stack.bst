@@ -1,4 +1,4 @@
 kind: stack
 
 depends:
-- elem2.bst
+- elem3.bst

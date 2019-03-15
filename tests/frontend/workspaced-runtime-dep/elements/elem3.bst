@@ -1,8 +1,7 @@
 kind: import
 
-depends:
-- filename: stack.bst
-  type: build
+runtime-depends:
+- elem2.bst
 
 sources:
 - kind: local

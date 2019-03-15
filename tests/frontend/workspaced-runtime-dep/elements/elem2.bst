@@ -1,8 +1,7 @@
 kind: import
 
-depends:
-- filename: elem1.bst
-  type: runtime
+runtime-depends:
+- elem1.bst
 
 sources:
 - kind: local

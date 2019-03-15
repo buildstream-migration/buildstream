@@ -1,8 +1,8 @@
 kind: import
 
 build-depends:
-- elem2.bst
+- stack.bst
 
 sources:
 - kind: local
-  path: files/file3
+  path: files/file4
