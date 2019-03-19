@@ -1239,15 +1239,15 @@ TEST_DIR = os.path.join(
 @pytest.mark.parametrize(
     ["case", "non_workspaced_elements_state"],
     [
-        ("workspaced-build-dep", ["waiting", "waiting", "waiting", "waiting"]),
-        ("workspaced-runtime-dep", ["buildable", "buildable", "waiting", "waiting"])
+        ("workspaced-build-dep", ["waiting", "waiting", "waiting", "waiting", "waiting"]),
+        ("workspaced-runtime-dep", ["buildable", "buildable", "waiting", "waiting", "waiting"])
     ],
 )
 @pytest.mark.parametrize("strict", [("strict"), ("non-strict")])
 def test_build_all(cli, tmpdir, datafiles, case, strict, non_workspaced_elements_state):
     project = os.path.join(str(datafiles), case)
     workspace = os.path.join(str(tmpdir), 'workspace')
-    non_leaf_elements = ["elem2.bst", "elem3.bst", "stack.bst", "elem4.bst"]
+    non_leaf_elements = ["elem2.bst", "elem3.bst", "stack.bst", "elem4.bst", "elem5.bst"]
     all_elements = ["elem1.bst", *non_leaf_elements]
 
     # Configure strict mode
@@ -1270,8 +1270,8 @@ def test_build_all(cli, tmpdir, datafiles, case, strict, non_workspaced_elements
     assert cli.get_element_states(project, all_elements) == \
         dict(zip(all_elements, ['buildable', *non_workspaced_elements_state]))
 
-    # Now build the target elem3.bst
-    result = cli.run(project=project, args=['build', 'elem4.bst'])
+    # Now build the targets elem4.bst and elem5.bst
+    result = cli.run(project=project, args=['build', 'elem4.bst', 'elem5.bst'])
     result.assert_success()
 
     # Assert that the target is built
