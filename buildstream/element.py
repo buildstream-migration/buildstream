@@ -219,6 +219,7 @@ class Element(Plugin):
         self.__direct_reverse_dependencies_for_build = []  # Direct reverse dependency Elements
         self.__direct_reverse_dependencies_for_runtime = []
         self.__remaining_runtime_deps_cache_keys_to_discover = 0
+        self.__reverse_deps_updated = False
         self.__sources = []                     # List of Sources
         self.__weak_cache_key = None            # Our cached weak cache key
         self.__strict_cache_key = None          # Our cached cache key for strict builds
@@ -1278,23 +1279,6 @@ class Element(Plugin):
             if self.__cache_key is None:
                 # Strong cache key could not be calculated yet
                 return
-
-            if self.__remaining_runtime_deps_cache_keys_to_discover == 0:
-                queue = UniquePriorityQueue()
-
-                queue.push(self.__node_id, self)
-
-                while queue:
-                    elem = queue.pop()
-
-                    for rdep in elem.__direct_reverse_dependencies_for_runtime:
-                        rdep.__remaining_runtime_deps_cache_keys_to_discover -= 1
-
-                        if (
-                                rdep.__remaining_runtime_deps_cache_keys_to_discover == 0 and
-                                rdep.__cache_key is not None
-                        ):
-                            queue.push(rdep.__node_id, rdep)
 
     # _get_display_key():
     #
@@ -2969,34 +2953,27 @@ class Element(Plugin):
         queue = UniquePriorityQueue()
         queue.push(self.__node_id, self)
 
-        def enqueue_skiplevel(element):
-            for rdep in element.__direct_reverse_dependencies_for_runtime:
-                if rdep.__remaining_runtime_deps_cache_keys_to_discover == 0:
-                    for rrdep in rdep.__direct_reverse_dependencies_for_build:
-                        queue.push(rrdep.__node_id, rrdep)
-
-                    # If something depending on us at runtime is ready too, their
-                    # reverse dependencies might be ready to we therefore need
-                    # to recurse
-                    enqueue_skiplevel(rdep)
-
         while queue:
             element = queue.pop()
 
-            old_cache_key = element.__cache_key
-            old_weak_cache_key = element.__weak_cache_key
-
             element._update_state()
 
-            if element.__cache_key != old_cache_key or old_weak_cache_key != element.__weak_cache_key:
+            ready = element.__remaining_runtime_deps_cache_keys_to_discover == 0 and element.__cache_key
+
+            if ready and not element.__reverse_deps_updated:
+                # We have discovered our cache key and have all our runtime
+                # dependencies ready.  Elements having a build or runtime
+                # dependency on us might be able to compute their own cache keys.
+
+                for rdep in element.__direct_reverse_dependencies_for_runtime:
+                    rdep.__remaining_runtime_deps_cache_keys_to_discover -= 1
+                    if rdep.__remaining_runtime_deps_cache_keys_to_discover == 0:
+                        queue.push(rdep.__node_id, rdep)
+
                 for rdep in element.__direct_reverse_dependencies_for_build:
                     queue.push(rdep.__node_id, rdep)
 
-            if element.__remaining_runtime_deps_cache_keys_to_discover == 0 and element.__cache_key != old_cache_key:
-                # We have discovered our cache key and have all our runtime
-                # dependencies ready.  Elements having a dependency at runtime
-                # on us can might be able to compute their own cache keys
-                enqueue_skiplevel(element)
+                element.__reverse_deps_updated = True
 
 
 def _overlap_error_detail(f, forbidden_overlap_elements, elements):
