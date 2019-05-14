@@ -37,7 +37,7 @@ from ..._message import Message, MessageType
 #
 #
 class QueueStatus(Enum):
-    # The element is waiting for dependencies.
+    # The element is not yet ready to be pushed into the queue
     WAIT = 1
 
     # The element can skip this queue.
@@ -73,7 +73,7 @@ class Queue():
         #
         self._scheduler = scheduler
         self._resources = scheduler.resources  # Shared resource pool
-        self._wait_queue = deque()             # Ready / Waiting elements
+        self._ready_queue = deque()            # Ready elements
         self._done_queue = deque()             # Processed / Skipped elements
         self._max_retries = 0
 
@@ -144,18 +144,26 @@ class Queue():
         if not elts:
             return
 
-        # Place skipped elements on the done queue right away.
-        #
-        # The remaining ready and waiting elements must remain in the
-        # same queue, and ready status must be determined at the moment
-        # which the scheduler is asking for the next job.
-        #
-        skip = [elt for elt in elts if self.status(elt) == QueueStatus.SKIP]
-        wait = [elt for elt in elts if elt not in skip]
+        # Obtain immediate element status
+        skip = []
+        ready = []
+        wait = []
+        for elt in elts:
+            status = self.status(elt)
+            if status == QueueStatus.SKIP:
+                skip.append(elt)
+            elif status == QueueStatus.READY:
+                ready.append(elt)
+            else:
+                wait.append(elt)
 
+        # Place skipped elements on the done queue right away and push the immediately
+        # ready elements into the ready_queue.
         self.skipped_elements.extend(skip)  # Public record of skipped elements
-        self._done_queue.extend(skip)       # Elements to be processed
-        self._wait_queue.extend(wait)       # Elements eligible to be dequeued
+        self._done_queue.extend(skip)       # Elements to proceed to the next queue
+        self._ready_queue.extend(ready)     # Elements ready to perform the job
+
+        # TODO: Register callbacks for the elements which are not yet ready
 
     # dequeue()
     #
@@ -181,35 +189,25 @@ class Queue():
 
     # harvest_jobs()
     #
-    # Process elements in the queue, moving elements which were enqueued
-    # into the dequeue pool, and creating as many jobs for which resources
+    # Spawn as many jobs from the ready queue for which resources
     # can be reserved.
     #
     # Returns:
     #     ([Job]): A list of jobs which can be run now
     #
     def harvest_jobs(self):
-        unready = []
         ready = []
-
-        while self._wait_queue:
+        while self._ready_queue:
+            # Check if we can reserve the resources
             if not self._resources.reserve(self.resources, peek=True):
                 break
 
-            element = self._wait_queue.popleft()
-            status = self.status(element)
+            # Now reserve them
+            reserved = self._resources.reserve(self.resources)
+            assert reserved
 
-            if status == QueueStatus.WAIT:
-                unready.append(element)
-            elif status == QueueStatus.SKIP:
-                self._done_queue.append(element)
-                self.skipped_elements.append(element)
-            else:
-                reserved = self._resources.reserve(self.resources)
-                assert reserved
-                ready.append(element)
-
-        self._wait_queue.extendleft(unready)
+            element = self._ready_queue.popleft()
+            ready.append(element)
 
         return [
             ElementJob(self._scheduler, self.action_name,
