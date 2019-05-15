@@ -115,3 +115,15 @@ class BuildQueue(Queue):
         #
         if status == JobStatus.OK:
             self._check_cache_size(job, element, result)
+
+    def register_waiting_elements(self, waiting_elements):
+        # Set a buildable callback on the waiting elements
+        for element in waiting_elements:
+            element._set_buildable_callback(self.on_element_buildable)
+
+    def on_element_buildable(self, element):
+        # Append the element to the appropriate sub-queue
+        if element._cached_success():
+            self._done_queue.append(element)
+        else:
+            self._ready_queue.append(element)

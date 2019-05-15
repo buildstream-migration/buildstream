@@ -64,3 +64,16 @@ class PullQueue(Queue):
         # actually check the cache size.
         if status == JobStatus.OK:
             self._scheduler.check_cache_size()
+
+    def register_waiting_elements(self, waiting_elements):
+        # Set a can_query_cache_callback for elements which are not
+        # immediately ready to query the artifact cache so that they
+        # may be pulled.
+        for element in waiting_elements:
+            element._set_can_query_cache_callback(self.on_element_can_query_cache)
+
+    def on_element_can_query_cache(self, element):
+        if element._pull_pending():
+            self._ready_queue.append(element)
+        else:
+            self._done_queue.append(element)

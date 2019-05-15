@@ -78,3 +78,20 @@ class FetchQueue(Queue):
             assert element._get_consistency() == Consistency.CACHED
         else:
             assert element._source_cached()
+
+    def register_waiting_elements(self, waiting_elements):
+        # Set a can_query_cache callback for elements which are not
+        # immediately ready to have their sources fetched.
+        for element in waiting_elements:
+            element._set_can_query_cache_callback(self.on_element_can_query_cache)
+
+    def on_element_can_query_cache(self, element):
+        # Once an Element is able to query the cache, we should check
+        # whether it is ready to fetch, unless it's already cached
+        #
+        # XXX: I haven't done anything with self._skip_cached...
+        #
+        if element._cached() or not element._should_fetch(self._fetch_original):
+            self._done_queue.append(element)
+        else:
+            self._ready_queue.append(element)
