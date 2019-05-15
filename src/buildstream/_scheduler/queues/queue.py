@@ -29,7 +29,7 @@ from ..jobs import ElementJob, JobStatus
 from ..resources import ResourceType
 
 # BuildStream toplevel imports
-from ..._exceptions import BstError, set_last_task_error
+from ..._exceptions import BstError, ImplError, set_last_task_error
 from ..._message import Message, MessageType
 
 
@@ -130,6 +130,24 @@ class Queue():
         pass
 
     #####################################################
+    #      Virtual Methods for Queue implementations    #
+    #####################################################
+
+    # register_waiting_elements()
+    #
+    # Virtual method for registering queue specific callbacks
+    # to Elements which are not immediately ready to advance
+    # to the next queue
+    #
+    # Args:
+    #    elements (list): A list of elements waiting to be
+    #                     pushed into the queue
+    #
+    def register_waiting_elements(self, elements):
+        raise ImplError("Queue type: {} does not implement register_waiting_elements()"
+                        .format(self.action_name))
+
+    #####################################################
     #          Scheduler / Pipeline facing APIs         #
     #####################################################
 
@@ -163,7 +181,9 @@ class Queue():
         self._done_queue.extend(skip)       # Elements to proceed to the next queue
         self._ready_queue.extend(ready)     # Elements ready to perform the job
 
-        # TODO: Register callbacks for the elements which are not yet ready
+        # Register callbacks for the waiting elements
+        if wait:
+            self.register_waiting_elements(wait)
 
     # dequeue()
     #
