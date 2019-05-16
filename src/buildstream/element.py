@@ -240,6 +240,11 @@ class Element(Plugin):
         self.__batch_prepare_assemble_flags = 0       # Sandbox flags for batching across prepare()/assemble()
         self.__batch_prepare_assemble_collect = None  # Collect dir for batching across prepare()/assemble()
 
+        # Callbacks
+        self.__required_callback = None               # Callback to Queues
+        self.__can_query_cache_callback = None        # Callback to PullQueue/FetchQueue
+        self.__buildable_callback = None              # Callback to BuildQueue
+
         # Ensure we have loaded this class's defaults
         self.__init_defaults(project, plugin_conf, meta.kind, meta.is_junction)
 
@@ -1191,9 +1196,14 @@ class Element(Plugin):
 
         if self._get_workspace() and self.__assemble_scheduled:
             # If we have an active workspace and are going to build, then
-            # discard current cache key values as their correct values can only
-            # be calculated once the build is complete
+            # discard current cache key values and invoke the buildable callback.
+            # The correct keys can only be calculated once the build is complete
             self.__reset_cache_data()
+
+            if self.__buildable_callback is not None and self._buildable():
+                self.__buildable_callback(self)
+                self.__buildable_callback = None
+
             return
 
         self.__update_cache_keys()
@@ -1211,6 +1221,13 @@ class Element(Plugin):
                 not self._cached_success() and
                 not self._pull_pending()):
             self._schedule_assemble()
+
+            # If a build has been scheduled, we know that the element
+            # is not cached and can allow cache query even if the strict cache
+            # key is not available yet.
+            if self.__can_query_cache_callback is not None:
+                self.__can_query_cache_callback(self)
+
             return
 
         if not context.get_strict():
@@ -1509,6 +1526,11 @@ class Element(Plugin):
             dep._set_required()
 
         self._update_state()
+
+        # Callback to the Queue
+        if self.__required_callback is not None:
+            self.__required_callback(self)
+            self.__required_callback = None
 
     # _is_required():
     #
@@ -2244,6 +2266,16 @@ class Element(Plugin):
         else:
             return True
 
+    def _set_required_callback(self, callback):
+        if self.__required_callback is None:
+            self.__required_callback = callback
+
+    def _set_can_query_cache_callback(self, callback):
+        self.__can_query_cache_callback = callback
+
+    def _set_buildable_callback(self, callback):
+        self.__buildable_callback = callback
+
     #############################################################
     #                   Private Local Methods                   #
     #############################################################
@@ -2954,6 +2986,10 @@ class Element(Plugin):
                 e.__strict_cache_key for e in self.dependencies(Scope.BUILD)
             ]
             self.__strict_cache_key = self._calculate_cache_key(dependencies)
+
+        if self.__strict_cache_key is not None and self.__can_query_cache_callback is not None:
+            self.__can_query_cache_callback(self)
+            self.__can_query_cache_callback = None
 
     # __update_artifact_state()
     #
