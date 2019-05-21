@@ -58,6 +58,7 @@ class Queue():
     action_name = None
     complete_name = None
     resources = []                     # Resources this queues' jobs want
+    only_required = True
 
     def __init__(self, scheduler):
 
@@ -167,7 +168,7 @@ class Queue():
         ready = []
         wait = []
         for elt in elts:
-            if not elt._is_required():
+            if self.only_required and not elt._is_required():
                 elt._set_required_callback(self.on_element_required)
             else:
                 status = self.status(elt)

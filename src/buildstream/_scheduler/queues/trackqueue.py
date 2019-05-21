@@ -34,6 +34,7 @@ class TrackQueue(Queue):
     action_name = "Track"
     complete_name = "Tracked"
     resources = [ResourceType.DOWNLOAD]
+    only_required = False
 
     def process(self, element):
         return element._track()
