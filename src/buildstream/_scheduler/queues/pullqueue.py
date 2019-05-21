@@ -39,11 +39,6 @@ class PullQueue(Queue):
             raise SkipJob(self.action_name)
 
     def status(self, element):
-        if not element._is_required():
-            # Artifact is not currently required but it may be requested later.
-            # Keep it in the queue.
-            return QueueStatus.WAIT
-
         if not element._can_query_cache():
             return QueueStatus.WAIT
 

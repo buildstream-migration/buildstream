@@ -70,11 +70,6 @@ class BuildQueue(Queue):
         return element._assemble()
 
     def status(self, element):
-        if not element._is_required():
-            # Artifact is not currently required but it may be requested later.
-            # Keep it in the queue.
-            return QueueStatus.WAIT
-
         if element._cached_success():
             return QueueStatus.SKIP
 

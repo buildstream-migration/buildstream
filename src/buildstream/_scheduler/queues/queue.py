@@ -167,13 +167,16 @@ class Queue():
         ready = []
         wait = []
         for elt in elts:
-            status = self.status(elt)
-            if status == QueueStatus.SKIP:
-                skip.append(elt)
-            elif status == QueueStatus.READY:
-                ready.append(elt)
+            if not elt._is_required():
+                elt._set_required_callback(self.on_element_required)
             else:
-                wait.append(elt)
+                status = self.status(elt)
+                if status == QueueStatus.SKIP:
+                    skip.append(elt)
+                elif status == QueueStatus.READY:
+                    ready.append(elt)
+                else:
+                    wait.append(elt)
 
         # Place skipped elements on the done queue right away and push the immediately
         # ready elements into the ready_queue.
@@ -344,3 +347,6 @@ class Queue():
         logfile = "{key}-{action}".format(key=key, action=action)
 
         return os.path.join(project.name, element.normal_name, logfile)
+
+    def on_element_required(self, element):
+        self.enqueue([element])
