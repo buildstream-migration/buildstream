@@ -1237,7 +1237,7 @@ class Element(Plugin):
             self.__ready_for_runtime = all(
                 dep.__ready_for_runtime for dep in self.__runtime_dependencies)
 
-        if not self.__ready_for_runtime_2 and self.__cache_key is not None and self._cached():
+        if not self.__ready_for_runtime_2 and self.__cache_key is not None and self._cached_success():
             self.__ready_for_runtime_2 = all(
                 dep.__ready_for_runtime_2 for dep in self.__runtime_dependencies)
 
