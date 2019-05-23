@@ -1228,9 +1228,12 @@ class Element(Plugin):
             self.__ready_for_runtime = all(
                 dep.__ready_for_runtime for dep in self.__runtime_dependencies)
 
-        if not self.__ready_for_runtime_2 and self.__cache_key is not None and self._cached_success():
-            self.__ready_for_runtime_2 = all(
-                dep.__ready_for_runtime_2 for dep in self.__runtime_dependencies)
+        if self.__ready_for_runtime:
+            # ready_for_runtime_2 is stronger than ready_for_runtime, so don't
+            # check the former if the latter is False
+            if not self.__ready_for_runtime_2 and self.__cache_key is not None and self._cached_success():
+                self.__ready_for_runtime_2 = all(
+                    dep.__ready_for_runtime_2 for dep in self.__runtime_dependencies)
 
         if self.__buildable_callback is not None and self._buildable():
             self.__buildable_callback(self)
