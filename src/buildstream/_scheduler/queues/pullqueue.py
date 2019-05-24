@@ -69,6 +69,6 @@ class PullQueue(Queue):
 
     def on_element_can_query_cache(self, element):
         if element._pull_pending():
-            self._ready_queue.append(element)
+            self._push_ready(element)
         else:
             self._done_queue.append(element)

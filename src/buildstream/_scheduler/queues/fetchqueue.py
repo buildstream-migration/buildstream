@@ -89,4 +89,4 @@ class FetchQueue(Queue):
         if element._cached() or not element._should_fetch(self._fetch_original):
             self._done_queue.append(element)
         else:
-            self._ready_queue.append(element)
+            self._push_ready(element)

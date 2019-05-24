@@ -22,6 +22,7 @@
 import os
 from collections import deque
 from enum import Enum
+import heapq
 import traceback
 
 # Local imports
@@ -74,7 +75,7 @@ class Queue():
         #
         self._scheduler = scheduler
         self._resources = scheduler.resources  # Shared resource pool
-        self._ready_queue = deque()            # Ready elements
+        self._ready_queue = []                 # Ready elements
         self._done_queue = deque()             # Processed / Skipped elements
         self._max_retries = 0
 
@@ -152,6 +153,9 @@ class Queue():
     #          Scheduler / Pipeline facing APIs         #
     #####################################################
 
+    def _push_ready(self, elt):
+        heapq.heappush(self._ready_queue, (elt._unique_id, elt))
+
     # enqueue()
     #
     # Enqueues some elements
@@ -175,7 +179,8 @@ class Queue():
                 if status == QueueStatus.SKIP:
                     skip.append(elt)
                 elif status == QueueStatus.READY:
-                    ready.append(elt)
+                    # ready.append(elt)
+                    self._push_ready(elt)
                 else:
                     wait.append(elt)
 
@@ -183,7 +188,7 @@ class Queue():
         # ready elements into the ready_queue.
         self.skipped_elements.extend(skip)  # Public record of skipped elements
         self._done_queue.extend(skip)       # Elements to proceed to the next queue
-        self._ready_queue.extend(ready)     # Elements ready to perform the job
+        # self._ready_queue.extend(ready)     # Elements ready to perform the job
 
         # Register callbacks for the waiting elements
         if wait:
@@ -230,7 +235,7 @@ class Queue():
             reserved = self._resources.reserve(self.resources)
             assert reserved
 
-            element = self._ready_queue.popleft()
+            _, element = heapq.heappop(self._ready_queue)
             ready.append(element)
 
         return [

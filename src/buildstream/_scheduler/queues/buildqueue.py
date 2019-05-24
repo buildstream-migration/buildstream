@@ -121,4 +121,4 @@ class BuildQueue(Queue):
         if element._cached_success():
             self._done_queue.append(element)
         else:
-            self._ready_queue.append(element)
+            self._push_ready(element)
