@@ -101,7 +101,7 @@ from .plugin import Plugin
 from .sandbox import SandboxFlags, SandboxCommandError
 from .sandbox._config import SandboxConfig
 from .sandbox._sandboxremote import SandboxRemote
-from .types import Consistency, CoreWarnings, Scope, _KeyStrength, _UniquePriorityQueue
+from .types import Consistency, CoreWarnings, Scope, _KeyStrength
 from ._artifact import Artifact
 
 from .storage.directory import Directory
@@ -1244,10 +1244,6 @@ class Element(Plugin):
         if not context.get_strict():
             self.__update_cache_key_non_strict()
 
-        if not self.__ready_for_runtime and self.__cache_key is not None and not self.__cache_keys_unstable:
-            self.__ready_for_runtime = all(
-                dep.__ready_for_runtime for dep in self.__runtime_dependencies)
-
     # _get_display_key():
     #
     # Returns cache keys for display purposes
@@ -1311,7 +1307,7 @@ class Element(Plugin):
 
         self.__tracking_scheduled = False
 
-        self.__update_state_recursively()
+        self._update_state()
 
     # _track():
     #
@@ -1567,7 +1563,7 @@ class Element(Plugin):
         if self.__artifact:
             self.__artifact.reset_cached()
 
-        self.__update_state_recursively()
+        self._update_state()
         self._update_ready_for_runtime_and_cached()
 
         if self._get_workspace() and self._cached_success():
@@ -1829,7 +1825,7 @@ class Element(Plugin):
         self.__strict_artifact.reset_cached()
         self.__artifact.reset_cached()
 
-        self.__update_state_recursively()
+        self._update_state()
         self._update_ready_for_runtime_and_cached()
 
     # _pull():
@@ -3004,26 +3000,6 @@ class Element(Plugin):
                     last_requires_previous = ix
             self.__last_source_requires_previous_ix = last_requires_previous
         return self.__last_source_requires_previous_ix
-
-    # __update_state_recursively()
-    #
-    # Update the state of all reverse dependencies, recursively.
-    #
-    def __update_state_recursively(self):
-        queue = _UniquePriorityQueue()
-        queue.push(self._unique_id, self)
-
-        while queue:
-            element = queue.pop()
-
-            old_ready_for_runtime = element.__ready_for_runtime
-            old_strict_cache_key = element.__strict_cache_key
-            element._update_state()
-
-            if element.__ready_for_runtime != old_ready_for_runtime or \
-               element.__strict_cache_key != old_strict_cache_key:
-                for rdep in element.__reverse_build_deps | element.__reverse_runtime_deps:
-                    queue.push(rdep._unique_id, rdep)
 
     # __reset_cache_data()
     #
