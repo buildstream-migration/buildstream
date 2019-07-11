@@ -3214,6 +3214,37 @@ class Element(Plugin):
                self.__cache_key is not None and not self.__cache_keys_unstable:
                 self.__ready_for_runtime = True
 
+                if not self.__ready_for_runtime_and_cached:
+                    if self.__runtime_deps_uncached == 0 and self._cached_success() and \
+                       self.__cache_key and not self.__cache_keys_unstable:
+                        self.__ready_for_runtime_and_cached = True
+
+                        # Notify reverse dependencies
+                        for rdep in self.__reverse_runtime_deps:
+                            n = rdep.__runtime_deps_without_cache_key - 1
+                            rdep.__runtime_deps_without_cache_key = n
+
+                            rdep.__runtime_deps_uncached -= 1
+
+                            # Try to notify reverse dependencies if all runtime deps are ready
+                            if n == 0:
+                                rdep.__update_ready_for_runtime()
+
+                        for rdep in self.__reverse_build_deps:
+                            n = rdep.__build_deps_without_cache_key - 1
+                            rdep.__build_deps_without_cache_key = n
+
+                            rdep.__build_deps_uncached -= 1
+
+                            if n == 0:
+                                rdep._update_state()
+
+                                if rdep.__buildable_callback is not None and rdep._buildable():
+                                    rdep.__buildable_callback(rdep)
+                                    rdep.__buildable_callback = None
+
+                        return
+
                 # Notify reverse dependencies
                 for rdep in self.__reverse_runtime_deps:
                     n = rdep.__runtime_deps_without_cache_key - 1
