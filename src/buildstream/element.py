@@ -2317,18 +2317,20 @@ class Element(Plugin):
 
                 # Notify reverse dependencies
                 for rdep in self.__reverse_runtime_deps:
-                    rdep.__runtime_deps_uncached -= 1
-                    assert not rdep.__runtime_deps_uncached < 0
+                    n = rdep.__runtime_deps_uncached - 1
+                    rdep.__runtime_deps_uncached = n
+                    # assert not rdep.__runtime_deps_uncached < 0
 
                     # Try to notify reverse dependencies if all runtime deps are ready
-                    if rdep.__runtime_deps_uncached == 0:
+                    if n == 0:
                         rdep._update_ready_for_runtime_and_cached()
 
                 for rdep in self.__reverse_build_deps:
-                    rdep.__build_deps_uncached -= 1
-                    assert not rdep.__build_deps_uncached < 0
+                    n = rdep.__build_deps_uncached - 1
+                    rdep.__build_deps_uncached = n
+                    # assert not rdep.__build_deps_uncached < 0
 
-                    if rdep.__buildable_callback is not None and rdep._buildable():
+                    if n == 0 and rdep.__buildable_callback is not None and rdep._buildable():
                         rdep.__buildable_callback(rdep)
                         rdep.__buildable_callback = None
 
@@ -3214,18 +3216,20 @@ class Element(Plugin):
 
                 # Notify reverse dependencies
                 for rdep in self.__reverse_runtime_deps:
-                    rdep.__runtime_deps_without_cache_key -= 1
-                    assert not rdep.__runtime_deps_without_cache_key < 0
+                    n = rdep.__runtime_deps_without_cache_key - 1
+                    rdep.__runtime_deps_without_cache_key = n
+                    # assert not rdep.__runtime_deps_without_cache_key < 0
 
                     # If all of our runtimes have cache keys, we can calculate ours
-                    if rdep.__runtime_deps_without_cache_key == 0:
+                    if n == 0:
                         rdep.__update_ready_for_runtime()
 
                 for rdep in self.__reverse_build_deps:
-                    rdep.__build_deps_without_cache_key -= 1
-                    assert not rdep.__build_deps_without_cache_key < 0
+                    n = rdep.__build_deps_without_cache_key - 1
+                    rdep.__build_deps_without_cache_key = n
+                    # assert not rdep.__build_deps_without_cache_key < 0
 
-                    if rdep.__build_deps_without_cache_key == 0:
+                    if n == 0:
                         rdep._update_state()
 
                 # If the element is cached, and has all of its runtime dependencies cached,
