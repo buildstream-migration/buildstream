@@ -142,8 +142,9 @@ class DownloadableFileSource(Source):
         with self.timed_activity("Fetching {}".format(self.url), silent_nested=True):
             sha256 = self._ensure_mirror()
             if sha256 != self.ref:
-                raise SourceError("File downloaded from {} has sha256sum '{}', not '{}'!"
-                                  .format(self.url, sha256, self.ref))
+                size = os.path.getsize(self._get_mirror_file(sha256))
+                raise SourceError("File downloaded from {} is {} bytes and has sha256sum '{}', not '{}'!"
+                                  .format(self.url, size, sha256, self.ref))
 
     def _warn_deprecated_etag(self, node):
         etag = node.get_str('etag', None)
