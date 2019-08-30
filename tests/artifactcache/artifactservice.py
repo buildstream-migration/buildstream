@@ -59,6 +59,9 @@ def test_artifact_get_not_found(tmpdir):
 def test_update_artifact(tmpdir, files):
     sharedir = os.path.join(str(tmpdir), "share")
     with create_artifact_share(sharedir, casd=True) as share:
+        # Disable fork to allow gRPC communication
+        share.cas.notify_fork_disabled()
+
         # put files object
         if files == "present":
             directory = re_pb2.Directory()

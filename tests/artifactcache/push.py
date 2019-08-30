@@ -56,6 +56,9 @@ def test_push(cli, tmpdir, datafiles):
             project = Project(project_dir, context)
             project.ensure_fully_loaded()
 
+            # Disable fork to allow gRPC communication
+            context.disable_fork()
+
             # Assert that the element's artifact is cached
             element = project.load_elements(['target.bst'])[0]
             element_key = cli.get_element_key(project_dir, 'target.bst')
@@ -110,6 +113,9 @@ def test_push_message(tmpdir, datafiles):
             # Load the project manually
             project = Project(project_dir, context)
             project.ensure_fully_loaded()
+
+            # Disable fork to allow gRPC communication
+            context.disable_fork()
 
             # Create a local artifact cache handle
             artifactcache = context.artifactcache

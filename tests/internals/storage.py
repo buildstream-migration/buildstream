@@ -20,6 +20,8 @@ def setup_backend(backend_class, tmpdir):
     else:
         cas_cache = CASCache(tmpdir)
         try:
+            cas_cache.notify_fork_disabled()
+
             yield backend_class(cas_cache)
         finally:
             cas_cache.release_resources()

@@ -92,6 +92,9 @@ def test_pull(cli, tmpdir, datafiles):
             project = Project(project_dir, context)
             project.ensure_fully_loaded()
 
+            # Disable fork to allow gRPC communication
+            context.disable_fork()
+
             # Create a local artifact cache handle
             artifactcache = context.artifactcache
 
@@ -145,6 +148,9 @@ def test_pull_tree(cli, tmpdir, datafiles):
             project = Project(project_dir, context)
             project.ensure_fully_loaded()
             cas = context.get_cascache()
+
+            # Disable fork to allow gRPC communication
+            context.disable_fork()
 
             # Assert that the element's artifact is cached
             element = project.load_elements(['target.bst'])[0]
