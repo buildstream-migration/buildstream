@@ -475,6 +475,7 @@ def test_artifact_show_artifact_ref(cli, tmpdir, datafiles):
 
 
 # Test artifact show artifact in remote
+@pytest.mark.in_subprocess
 @pytest.mark.datafiles(DATA_DIR)
 def test_artifact_show_element_available_remotely(cli, tmpdir, datafiles):
     project = str(datafiles)
