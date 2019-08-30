@@ -496,6 +496,11 @@ class Context():
     # with casd in the main process.
     #
     def disable_fork(self):
+        # Can't permanently disable fork in the main test process as the process
+        # may be used for further tests that may use fork.
+        if self.is_running_in_test_suite and 'BST_TEST_SUITE_FORKED' not in os.environ:
+            return
+
         self.fork_allowed = False
         cascache = self.get_cascache()
         cascache.notify_fork_disabled()
