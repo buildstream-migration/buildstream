@@ -114,6 +114,7 @@ class CASCache():
         self._casd_cas = None
         self._local_cas = None
         self._cache_usage_monitor = None
+        self.get_cache_usage()
 
     def __getstate__(self):
         state = self.__dict__.copy()
