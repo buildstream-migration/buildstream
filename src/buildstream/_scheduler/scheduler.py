@@ -73,6 +73,7 @@ class NotificationType(FastEnum):
     TASK_GROUPS = "task_groups"
     ELEMENT_TOTALS = "element_totals"
     FINISH = "finish"
+    SIGTSTP = "sigstp"
 
 
 # Notification()
@@ -535,8 +536,10 @@ class Scheduler:
         if self.terminated:
             return
 
-        notification = Notification(NotificationType.INTERRUPT)
-        self._notify_front(notification)
+        if not self._notify_front_queue:
+            # Not running in a subprocess, scheduler process to handle keyboard interrupt
+            notification = Notification(NotificationType.INTERRUPT)
+            self._notify_front(notification)
 
     # _terminate_event():
     #
@@ -575,6 +578,9 @@ class Scheduler:
         self.loop.remove_signal_handler(signal.SIGINT)
         self.loop.remove_signal_handler(signal.SIGTSTP)
         self.loop.remove_signal_handler(signal.SIGTERM)
+        # If running under the subprocess, ignore SIGINT when disconnected
+        if self._notify_front_queue:
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     def _terminate_jobs_real(self):
         def kill_jobs():
@@ -622,6 +628,8 @@ class Scheduler:
             self.jobs_unsuspended()
         elif notification.notification_type == NotificationType.RETRY:
             self._failure_retry(notification.job_action, notification.element)
+        elif notification.notification_type == NotificationType.SIGTSTP:
+            self._suspend_event()
         else:
             # Do not raise exception once scheduler process is separated
             # as we don't want to pickle exceptions between processes
