@@ -141,7 +141,8 @@ class Stream:
         pickling_support.install()
 
         try:
-            func(*args, **kwargs)
+            with PROFILER.profile(Topics.SUBPROCESS, "stream"):
+                func(*args, **kwargs)
         except Exception as e:  # pylint: disable=broad-except
             notify.put(Notification(NotificationType.EXCEPTION, exception=SubprocessException(e)))
 
