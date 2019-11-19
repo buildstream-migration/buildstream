@@ -151,7 +151,7 @@ class Stream:
     def run_in_subprocess(self, func, *args, **kwargs):
         assert not self._subprocess
 
-        # mp_context = _multiprocessing.get_context(method='fork')
+        #mp_context = mp.get_context(method='fork')
         process_name = "stream-{}".format(func.__name__)
 
         self._notify_front_queue = mp.Queue()
@@ -172,7 +172,7 @@ class Stream:
 
         # We can now launch another async
         self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
+        #asyncio.set_event_loop(self.loop)
         self._connect_signals()
         self._start_listening()
         self.loop.set_exception_handler(self._handle_exception)
@@ -202,6 +202,14 @@ class Stream:
         for q in [self._notify_back_queue, self._notify_front_queue]:
             if q is not None:
                 q.close()
+                q.join_thread()
+                q = None
+        # Close any loops, remove policies
+        if self.loop:
+            self.loop.close()
+            self.loop = None
+        asyncio.set_event_loop_policy(None)
+
         if self._project:
             self._project.cleanup()
 
@@ -1853,6 +1861,7 @@ class Stream:
         if self._context.get_cascache()._casd_process:
             self._casd_process = self._context.get_cascache().get_casd_process()
             self._watcher = asyncio.get_child_watcher()
+            self._watcher.attach_loop(self.loop)
             self._watcher.add_child_handler(self._casd_process.pid, self._abort_on_casd_failure)
 
     def _abort_on_casd_failure(self, pid: int, returncode: int) -> None:
@@ -1864,6 +1873,7 @@ class Stream:
 
     def _stop_watching_casd(self) -> None:
         self._watcher.remove_child_handler(self._casd_process.pid)
+        self._watcher.close()
         self._casd_process = None
 
     def _handle_exception(self, loop, context: dict) -> None:

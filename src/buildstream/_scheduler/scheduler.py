@@ -226,6 +226,7 @@ class Scheduler:
         # Stop watching casd if not subprocessed
         if self._casd_process:
             _watcher.remove_child_handler(casd_process.pid)
+            _watcher.close()
             self._casd_process = None
 
         # Stop handling unix signals
