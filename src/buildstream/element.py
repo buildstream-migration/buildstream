@@ -1560,17 +1560,20 @@ class Element(Plugin):
     #
     # This will result in updating the element state.
     #
-    def _assemble_done(self):
+    def _assemble_done(self, successful):
         assert self.__assemble_scheduled
 
         self.__assemble_scheduled = False
         self.__assemble_done = True
 
-        # Artifact may have a cached success now.
-        if self.__strict_artifact:
-            self.__strict_artifact.reset_cached()
-        if self.__artifact:
-            self.__artifact.reset_cached()
+        if successful:
+            self.__artifact._cached = True
+            self.__cached_successfully = True
+        else:
+            if self.__strict_artifact:
+                self.__strict_artifact.reset_cached()
+            if self.__artifact:
+                self.__artifact.reset_cached()
 
         # When we're building in non-strict mode, we may have
         # assembled everything to this point without a strong cache
@@ -1724,7 +1727,7 @@ class Element(Plugin):
                 pass
 
         # ensure we have cache keys
-        self._assemble_done()
+        self.__update_cache_key_non_strict()
 
         with self.timed_activity("Caching artifact"):
             artifact_size = self.__artifact.cache(rootdir, sandbox_build_dir, collectvdir, buildresult, publicdata)
@@ -1744,15 +1747,18 @@ class Element(Plugin):
     #
     # Indicates that fetching the sources for this element has been done.
     #
-    def _fetch_done(self):
+    def _fetch_done(self, successful, *, fetch_original):
         # We are not updating the state recursively here since fetching can
         # never end up in updating them.
 
-        # Fetching changes the source state from RESOLVED to CACHED
-        # Fetching cannot change the source state from INCONSISTENT to CACHED because
-        # we prevent fetching when it's INCONSISTENT.
-        # Therefore, only the source state will change.
-        self.__update_source_state()
+        if successful and not fetch_original:
+            self.__source_cached = True
+        else:
+            # Fetching changes the source state from RESOLVED to CACHED
+            # Fetching cannot change the source state from INCONSISTENT to CACHED because
+            # we prevent fetching when it's INCONSISTENT.
+            # Therefore, only the source state will change.
+            self.__update_source_state()
 
     # _pull_pending()
     #

@@ -69,7 +69,7 @@ class FetchQueue(Queue):
         if status is JobStatus.FAIL:
             return
 
-        element._fetch_done()
+        element._fetch_done(status is JobStatus.OK, fetch_original=self._should_fetch_original)
 
         # Successful fetch, we must be CACHED or in the sourcecache
         if self._should_fetch_original:
