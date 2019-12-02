@@ -1419,6 +1419,7 @@ class Element(Plugin):
     def _stage_sources_at(self, vdirectory, usebuildtree=False):
 
         context = self._get_context()
+        set_deterministic_mtimes = True
 
         # It's advantageous to have this temporary directory on
         # the same file system as the rest of our cache.
@@ -1457,6 +1458,8 @@ class Element(Plugin):
                         for source in self.__sources[last_required_previous_ix:]:
                             source_dir = sourcecache.export(source)
                             import_dir.import_files(source_dir)
+                            if source.BST_STAGE_VIRTUAL_DIRECTORY:
+                                set_deterministic_mtimes = False
 
                     except SourceCacheError as e:
                         raise ElementError("Error trying to export source for {}: {}".format(self.name, e))
@@ -1470,7 +1473,8 @@ class Element(Plugin):
                 vdirectory.import_files(import_dir)
 
         # Ensure deterministic mtime of sources at build time
-        vdirectory.set_deterministic_mtime()
+        if set_deterministic_mtimes:
+            vdirectory.set_deterministic_mtime()
         # Ensure deterministic owners of sources at build time
         vdirectory.set_deterministic_user()
 
