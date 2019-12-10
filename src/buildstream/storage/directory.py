@@ -32,7 +32,7 @@ See also: :ref:`sandboxing`.
 """
 
 
-from typing import Callable, Optional, Union
+from typing import Callable, Optional, Union, List
 
 from .._exceptions import BstError
 from ..exceptions import ErrorDomain
@@ -83,7 +83,8 @@ class Directory:
         filter_callback: Optional[Callable[[str], bool]] = None,
         report_written: bool = True,
         update_mtime: bool = False,
-        can_link: bool = False
+        can_link: bool = False,
+        properties: Optional[List[str]] = None
     ) -> FileListResult:
         """Imports some or all files from external_path into this directory.
 
@@ -104,6 +105,8 @@ class Directory:
             original files change. Setting this doesn't guarantee hard
             links will be made. can_link will never be used if
             update_mtime is set.
+          properties: Optional list of strings representing file properties
+            to capture when importing.
 
         Yields:
           A report of files imported and overwritten.
