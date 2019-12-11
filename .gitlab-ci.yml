@@ -132,6 +132,12 @@ tests-userchroot:
     BST_CAS_STAGING_ROOT: "/builds/userchroot"
 
   script:
+    - git clone https://github.com/juergbi/userchroot.git
+    - sh -c 'cd userchroot && git checkout 998519f05fbed61ed20054df9567197aeb3f9cf4'
+    - make -C userchroot PREFIX=/usr/local
+    - install -m 4755 userchroot/userchroot /usr/local/bin/userchroot
+    - rm -rf userchroot
+
     - mkdir -p "${INTEGRATION_CACHE}"
     - useradd -Um buildstream
 
