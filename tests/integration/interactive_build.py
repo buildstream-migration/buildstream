@@ -66,9 +66,7 @@ def test_failed_build_log(element_name, build_session):
     build_session.sendline(os.linesep * 20)
 
     # Assert that we got something from the logs
-    build_session.expect(
-        "FAILURE interactive/failed-build.bst: Running (build-)?commands", timeout=PEXPECT_TIMEOUT_LONG
-    )
+    build_session.expect("FAILURE interactive/failed-build.bst: Running (build-)?commands")
 
     # Quit the pager
     build_session.send("q")
