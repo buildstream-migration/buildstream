@@ -51,6 +51,9 @@ def create_test_directory(*path, mode=0o644):
 @pytest.mark.datafiles(DATA_DIR)
 @pytest.mark.skipif(not HAVE_SANDBOX, reason="Only available with a functioning sandbox")
 def test_deterministic_source_umask(cli, tmpdir, datafiles, kind):
+    if CASD_SEPARATE_USER and kind == "ostree":
+        pytest.xfail("The ostree plugin ignores the umask")
+
     project = str(datafiles)
     element_name = "list.bst"
     element_path = os.path.join(project, "elements", element_name)
