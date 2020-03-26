@@ -175,12 +175,15 @@ class Queue:
     # Args:
     #    elts (list): A list of Elements
     #
-    def enqueue(self, elts):
+    def enqueue(self, elts, task=None):
         if not elts:
             return
 
         # Obtain immediate element status
         for elt in elts:
+            if task:
+                task.add_current_progress()
+
             self._enqueue_element(elt)
 
     # dequeue()

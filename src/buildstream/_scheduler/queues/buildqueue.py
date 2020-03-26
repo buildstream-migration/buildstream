@@ -38,7 +38,7 @@ class BuildQueue(Queue):
         super().__init__(*args, **kwargs)
         self._tried = set()
 
-    def enqueue(self, elts):
+    def enqueue(self, elts, task=None):
         to_queue = []
 
         for element in elts:
@@ -64,7 +64,7 @@ class BuildQueue(Queue):
             element_name = element._get_full_name()
             self._task_group.add_failed_task(element_name)
 
-        return super().enqueue(to_queue)
+        return super().enqueue(to_queue, task)
 
     def get_process_func(self):
         return BuildQueue._assemble_element

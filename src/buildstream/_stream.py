@@ -1321,7 +1321,11 @@ class Stream:
     #
     def _enqueue_plan(self, plan, *, queue=None):
         queue = queue or self.queues[0]
-        queue.enqueue(plan)
+
+        with self._context.messenger.simple_task("Preparing work plan") as task:
+            task.set_maximum_progress(len(plan))
+            queue.enqueue(plan, task)
+
         self.session_elements += plan
 
     # _failure_retry()
