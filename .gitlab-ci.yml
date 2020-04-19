@@ -44,6 +44,10 @@ variables:
 
   before_script:
   # Diagnostics
+  - uname -a
+  - sysctl -a | grep _user
+  - sysctl user.max_user_namespaces=65536 || true
+  - sysctl kernel.unprivileged_userns_clone=1 || true
   - mount
   - df -h
   - tox --version
