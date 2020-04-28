@@ -45,6 +45,7 @@ variables:
   before_script:
   # Diagnostics
   - mount
+  - ls -al /dev
   - df -h
   - tox --version
 
