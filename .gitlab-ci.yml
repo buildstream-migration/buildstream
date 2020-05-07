@@ -14,7 +14,7 @@ stages:
   - post
 
 variables:
-  DOCKER_IMAGE_VERSION: master-132813612
+  DOCKER_IMAGE_VERSION: master-140747994
   INTEGRATION_CACHE: "${CI_PROJECT_DIR}/cache/integration-cache"
   TEST_COMMAND: "tox -- --color=yes --integration"
   COVERAGE_PREFIX: "${CI_JOB_NAME}."
@@ -65,11 +65,11 @@ tests-fedora-31:
   <<: *tests
 
 tests-ubuntu-18.04:
-  image: registry.gitlab.com/buildstream/buildstream-docker-images/testsuite-ubuntu:18.04-master-55318540
+  image: registry.gitlab.com/buildstream/buildstream-docker-images/testsuite-ubuntu:18.04-${DOCKER_IMAGE_VERSION}
   <<: *tests
 
 tests-python-3.8-buster:
-  image: registry.gitlab.com/buildstream/buildstream-docker-images/testsuite-python:3.8-buster-master-114538533
+  image: registry.gitlab.com/buildstream/buildstream-docker-images/testsuite-python:3.8-buster-${DOCKER_IMAGE_VERSION}
   <<: *tests
   variables:
     # This particular testsuite image has both Python 3.7 and Python 3.8 so we
