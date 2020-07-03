@@ -599,11 +599,21 @@ class Plugin:
                 )
                 proc.start()
 
-                while proc.is_alive():
+                should_continue = True
+                last_check = False
+
+                while should_continue or last_check:
+                    last_check = False
+
                     try:
                         err, result = result_queue.get(timeout=1)
                         break
                     except queue.Empty:
+                        if not proc.is_alive():
+                            # Let's check one last time, just in case it stopped
+                            # between our last check and now
+                            last_check = True
+                            should_continue = False
                         continue
                 else:
                     raise PluginError("Background process died with error code {}".format(proc.exitcode))
