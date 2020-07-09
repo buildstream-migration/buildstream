@@ -110,14 +110,17 @@ Class Reference
 """
 
 import itertools
+import multiprocessing
 import os
+import queue
+import signal
 import subprocess
 import sys
 from contextlib import contextmanager
-from typing import Generator, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Generator, Optional, Sequence, Tuple, TypeVar, TYPE_CHECKING
 from weakref import WeakValueDictionary
 
-from . import utils
+from . import utils, _signals
 from ._exceptions import PluginError, ImplError
 from ._message import Message, MessageType
 from .node import MappingNode, ProvenanceInformation
@@ -129,6 +132,22 @@ if TYPE_CHECKING:
     from ._project import Project
 
     # pylint: enable=cyclic-import
+
+
+T1 = TypeVar("T1")
+
+
+# _background_job_wrapper()
+#
+# Wrapper for running jobs in the background, transparently for users
+#
+# Args:
+#   result_queue: The queue in which to pass back the result
+#   target: function to execute in the background
+#   args: positional arguments to give to the target function
+#
+def _background_job_wrapper(result_queue: multiprocessing.Queue, target: Callable[..., T1], args: Any) -> None:
+    result_queue.put(target(*args))
 
 
 class Plugin:
@@ -211,6 +230,8 @@ class Plugin:
     # Note that Plugins can only be instantiated in the main process before
     # scheduling tasks.
     __TABLE = WeakValueDictionary()  # type: WeakValueDictionary[int, Plugin]
+
+    __multiprocessing_context = multiprocessing.get_context("spawn")
 
     def __init__(
         self,
@@ -502,6 +523,76 @@ class Plugin:
             activity_name, element_name=self._get_full_name(), detail=detail, silent_nested=silent_nested
         ):
             yield
+
+    def blocking_activity(
+        self,
+        target: Callable[..., T1],
+        args: Sequence[Any],
+        activity_name: str,
+        *,
+        detail: Optional[str] = None,
+        silent_nested: bool = False
+    ) -> T1:
+        """Execute a blocking activity in the background.
+
+        This is to execute potentially blocking methods in the background,
+        in order to avoid starving the scheduler.
+
+        The function, its arguments and return value must all be pickleable,
+        as it will be run in another process.
+
+        This should be used whenever there is a potential for a blocking
+        syscall to not return in a reasonable (<1s) amount of time.
+        For example, you would use this if you were doing a request to a
+        remote server, without a timeout.
+
+        Args:
+            target: the function to execute in the background
+            args: positional arguments to pass to the method to call
+            activity_name: The name of the activity
+            detail: An optional detailed message, can be multiline output
+            silent_nested: If specified, nested messages will be silenced
+
+        Returns:
+            the return value from `target`.
+        """
+        with self.__context.messenger.timed_activity(
+            activity_name, element_name=self._get_full_name(), detail=detail, silent_nested=silent_nested
+        ):
+            result_queue = self.__multiprocessing_context.Queue()
+            proc = None
+
+            def kill_proc():
+                if proc:
+                    proc.kill()
+                    proc.join()
+
+            def suspend_proc():
+                if proc:
+                    group_id = os.getpgid(proc.pid)
+                    os.killpg(group_id, signal.SIGSTOP)
+
+            def resume_proc():
+                if proc:
+                    group_id = os.getpgid(proc.pid)
+                    os.killpg(group_id, signal.SIGCONT)
+
+            with _signals.suspendable(suspend_proc, resume_proc), _signals.terminator(kill_proc):
+                proc = self.__multiprocessing_context.Process(
+                    target=_background_job_wrapper, args=(result_queue, target, args)
+                )
+                proc.start()
+
+                while True:
+                    try:
+                        result = result_queue.get(timeout=1)
+                        break
+                    except queue.Empty:
+                        continue
+
+                proc.join(timeout=1)
+
+            return result
 
     def call(self, *popenargs, fail: Optional[str] = None, fail_temporarily: bool = False, **kwargs) -> int:
         """A wrapper for subprocess.call()
