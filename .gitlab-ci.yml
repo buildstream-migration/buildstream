@@ -62,3 +62,8 @@ variables:
 tests-fedora-32:
   image: registry.gitlab.com/buildstream/buildstream-docker-images/testsuite-fedora:32-${DOCKER_IMAGE_VERSION}
   <<: *tests
+  variables:
+    # Our testsuite has issues with coverage on Python 3.8 so disable coverage
+    # in the meantime. For more details, see
+    # https://gitlab.com/BuildStream/buildstream/issues/1173.
+    TOXENV: py38-nocover
