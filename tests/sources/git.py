@@ -34,10 +34,16 @@ from buildstream.exceptions import ErrorDomain
 from buildstream.plugin import CoreWarnings
 from buildstream.testing import cli  # pylint: disable=unused-import
 from buildstream.testing import generate_project, generate_element, load_yaml
-from buildstream.testing import create_repo
+from buildstream.testing import create_repo, BstStandardSourceTests
 from buildstream.testing._utils.site import HAVE_GIT, HAVE_OLD_GIT
+from tests.testutils.repo.git import Git
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "git",)
+
+
+class TestGitSourceBSTGeneric(BstStandardSourceTests):
+    KIND = "git"
+    REPO = Git
 
 
 @pytest.mark.skipif(HAVE_GIT is False, reason="git is not available")

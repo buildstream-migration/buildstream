@@ -15,14 +15,29 @@
 #  License along with this library. If not, see <http://www.gnu.org/licenses/>.
 #
 
-# XXX: we should reorganize those modules after the source tests have
-#      been refactored
-# pylint: disable=cyclic-import
+import os
+from abc import ABC, abstractmethod
+from typing import Type
 
-from .fetch import FetchBstStandardSourceTests
+import pytest
 
-__all__ = ["BstStandardSourceTests"]
+from ..repo import Repo
+
+# Project directory
+TOP_DIR = os.path.dirname(os.path.realpath(__file__))
+DATA_DIR = os.path.join(TOP_DIR, "project")
 
 
-class BstStandardSourceTests(FetchBstStandardSourceTests):
-    """Definition of standardized tests that each source should pass."""
+@pytest.mark.datafiles(DATA_DIR)
+class BaseBstGenericSourceTests(ABC):
+    @property
+    @classmethod
+    @abstractmethod
+    def KIND(cls) -> str:
+        """Human readable name of the source currently being tested."""
+
+    @property
+    @classmethod
+    @abstractmethod
+    def REPO(cls) -> Type[Repo]:
+        """Get the repo implementation for the currently tested source."""
