@@ -1060,11 +1060,17 @@ class Element(Plugin):
     #    (bool): Whether this element is already present in
     #            the artifact cache
     #
-    def _cached(self):
+    def _cached(self, *, allow_main_process=False):
         if not self.__artifact:
             return False
 
-        return self.__artifact.cached()
+        return self.__artifact.cached(allow_main_process=allow_main_process)
+
+    def _cache_state_available(self):
+        if not self.__artifact:
+            return False
+
+        return self.__artifact._cached is not None
 
     # _cached_remotely():
     #
@@ -1540,13 +1546,12 @@ class Element(Plugin):
 
         self.__strict_artifact.reset_cached()
 
+        self.__artifact.set_cached()
+
         if successful:
             # Directly set known cached status as optimization to avoid
             # querying buildbox-casd and the filesystem.
-            self.__artifact.set_cached()
             self.__cached_successfully = True
-        else:
-            self.__artifact.reset_cached()
 
         # When we're building in non-strict mode, we may have
         # assembled everything to this point without a strong cache
@@ -1745,26 +1750,7 @@ class Element(Plugin):
     #   (bool): Whether a pull operation is pending
     #
     def _pull_pending(self):
-        if self._get_workspace():
-            # Workspace builds are never pushed to artifact servers
-            return False
-
-        # Check whether the pull has been invoked with a specific subdir requested
-        # in user context, as to complete a partial artifact
-        pull_buildtrees = self._get_context().pull_buildtrees
-
-        if self.__strict_artifact:
-            if self.__strict_artifact.cached() and pull_buildtrees:
-                # If we've specified a subdir, check if the subdir is cached locally
-                # or if it's possible to get
-                if self._cached_buildtree() or not self._buildtree_exists():
-                    return False
-            elif self.__strict_artifact.cached():
-                return False
-
-        # Pull is pending if artifact remote server available
-        # and pull has not been attempted yet
-        return self.__artifacts.has_fetch_remotes(plugin=self) and not self.__pull_done
+        return not self.__pull_done
 
     # _pull_done()
     #
@@ -1776,22 +1762,40 @@ class Element(Plugin):
     #
     # This will result in updating the element state.
     #
-    def _pull_done(self):
+    # Args:
+    #     successful (bool): Whether the pull / cache check was successful
+    #
+    def _pull_done(self, successful, strength):
         self.__pull_done = True
 
-        # Artifact may become cached after pulling, so let it query the
-        # filesystem again to check
-        self.__strict_artifact.reset_cached()
-        self.__artifact.reset_cached()
+        # want to mark it as cached / not cached in the main process
+        # without querying the cache again
+        # in non-strict mode this means I not only need to know whether
+        # pull/check was successful but also whether we have the strict artifact
+        # in the cache or not
 
-        # We may not have actually pulled an artifact - the pull may
-        # have failed. We might therefore need to schedule assembly.
+        if successful:
+            # Artifact may become cached after pulling, so let it query the
+            # filesystem again to check
+            if strength == _KeyStrength.STRONG:
+                self.__artifact = self.__strict_artifact
+            else:
+                self.__strict_artifact._cached = False
+
+            self.__artifact.set_cached()
+
+            # If we've finished pulling, an artifact might now exist
+            # locally, so we might need to update a non-strict strong
+            # cache key.
+            self.__update_cache_key_non_strict()
+            self._update_ready_for_runtime_and_cached()
+        else:
+            self.__strict_artifact._cached = False
+            self.__artifact._cached = False
+
+        # The pull may have failed or we may have pulled a cached failure.
+        # We might therefore need to schedule assembly.
         self.__schedule_assembly_when_necessary()
-        # If we've finished pulling, an artifact might now exist
-        # locally, so we might need to update a non-strict strong
-        # cache key.
-        self.__update_cache_key_non_strict()
-        self._update_ready_for_runtime_and_cached()
 
     # _pull():
     #
@@ -1799,24 +1803,39 @@ class Element(Plugin):
     #
     # Returns: True if the artifact has been downloaded, False otherwise
     #
-    def _pull(self):
+    def _pull(self, *, check_remotes=True):
         context = self._get_context()
 
-        # Get optional specific subdir to pull and optional list to not pull
-        # based off of user context
-        pull_buildtrees = context.pull_buildtrees
+        # Check whether the pull has been invoked with a specific subdir requested
+        # in user context, as to complete a partial artifact
+        pull_buildtrees = context.pull_buildtrees and not self._get_workspace()
 
-        # Attempt to pull artifact without knowing whether it's available
-        pulled = self.__pull_strong(pull_buildtrees=pull_buildtrees)
+        # First check whether we already have the strict artifact in the local cache
+        if self.__strict_artifact.cached():
+            if pull_buildtrees:
+                # If we've specified a subdir, check if the subdir is cached locally
+                # or if it's possible to get
+                if self._cached_buildtree() or not self._buildtree_exists():
+                    return _KeyStrength.STRONG
+            else:
+                return _KeyStrength.STRONG
 
-        if not pulled and not self._cached() and not context.get_strict():
-            pulled = self.__pull_weak(pull_buildtrees=pull_buildtrees)
+        # Check remotes if requested and artifact remote server available.
+        # Workspace builds are never pushed to artifact servers
+        check_remotes = check_remotes and self.__artifacts.has_fetch_remotes(plugin=self) and not self._get_workspace()
 
-        if not pulled:
-            return False
+        # Attempt to pull artifact with the strict cache key
+        if check_remotes and self.__pull_strong(pull_buildtrees=pull_buildtrees):
+            return _KeyStrength.STRONG
 
-        # Notify successfull download
-        return True
+        if not context.get_strict():
+            if self._cached():
+                return _KeyStrength.WEAK
+
+            if check_remotes and self.__pull_weak(pull_buildtrees=pull_buildtrees):
+                return _KeyStrength.WEAK
+
+        return None
 
     def _skip_source_push(self):
         if not self.sources() or self._get_workspace():
@@ -1834,6 +1853,9 @@ class Element(Plugin):
     #   (bool): True if this element does not need a push job to be created
     #
     def _skip_push(self):
+        if not self._cached():
+            return True
+
         if not self.__artifacts.has_push_remotes(plugin=self):
             # No push remotes for this element's project
             return True
@@ -2244,7 +2266,7 @@ class Element(Plugin):
     #
     def _update_ready_for_runtime_and_cached(self):
         if not self.__ready_for_runtime_and_cached:
-            if self.__runtime_deps_uncached == 0 and self._cached_success() and self.__cache_key:
+            if self.__runtime_deps_uncached == 0 and self.__pull_done and self._cached_success() and self.__cache_key:
                 self.__ready_for_runtime_and_cached = True
 
                 # Notify reverse dependencies
@@ -2956,7 +2978,8 @@ class Element(Plugin):
             return False
 
         # extract strong cache key from this newly fetched artifact
-        self._pull_done()
+        # FIXME
+        self._pull_done(True, _KeyStrength.WEAK)
 
         # create tag for strong cache key
         key = self._get_cache_key(strength=_KeyStrength.STRONG)

@@ -65,7 +65,7 @@ def test_fetch_consistency_error(cli, datafiles):
     # When the error occurs outside of the scheduler at load time,
     # then the SourceError is reported directly as the main error.
     result = cli.run(project=project, args=["source", "fetch", "error.bst"])
-    result.assert_main_error(ErrorDomain.SOURCE, "the-consistency-error")
+    result.assert_main_error(ErrorDomain.SOURCE, "the-consistency-error", debug=True)
 
 
 @pytest.mark.datafiles(os.path.join(TOP_DIR, "consistencyerror"))

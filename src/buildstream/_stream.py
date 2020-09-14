@@ -160,6 +160,13 @@ class Stream:
                 load_refs=load_refs,
             )
 
+            with self._context.messenger.timed_activity("load_selection"):
+                self._scheduler.clear_queues()
+                self._add_queue(PullQueue(self._scheduler, check_remotes=False))
+                self._enqueue_plan(target_objects)
+                self._run()
+                self._scheduler.clear_queues()
+
             return target_objects
 
     # shell()
@@ -198,44 +205,64 @@ class Stream:
         if unique_id and element is None:
             element = Plugin._lookup(unique_id)
 
-        missing_deps = [dep for dep in self._pipeline.dependencies([element], scope) if not dep._cached()]
-        if missing_deps:
-            if not pull_dependencies:
-                raise StreamError(
-                    "Elements need to be built or downloaded before staging a shell environment",
-                    detail="\n".join(list(map(lambda x: x._get_full_name(), missing_deps))),
-                )
-            self._message(MessageType.INFO, "Attempting to fetch missing or incomplete artifacts")
-            self._scheduler.clear_queues()
-            self._add_queue(PullQueue(self._scheduler))
-            plan = self._pipeline.add_elements([element], missing_deps)
-            self._enqueue_plan(plan)
-            self._run()
+        deps = self._pipeline.dependencies([element], scope)
+
+        self._scheduler.clear_queues()
+        self._add_queue(PullQueue(self._scheduler))
+        plan = self._pipeline.add_elements([element], deps)
+        self._enqueue_plan(plan)
+        self._run()
+
+        if False:
+            missing_deps = [dep for dep in self._pipeline.dependencies([element], scope) if not dep._cached()]
+            if missing_deps:
+                if not pull_dependencies:
+                    raise StreamError(
+                        "Elements need to be built or downloaded before staging a shell environment",
+                        detail="\n".join(list(map(lambda x: x._get_full_name(), missing_deps))),
+                    )
+                self._message(MessageType.INFO, "Attempting to fetch missing or incomplete artifacts")
+                self._scheduler.clear_queues()
+                self._add_queue(PullQueue(self._scheduler))
+                plan = self._pipeline.add_elements([element], missing_deps)
+                self._enqueue_plan(plan)
+                self._run()
+
+            buildtree = False
+            # Check if we require a pull queue attempt, with given artifact state and context
+            if usebuildtree:
+                if not element._cached_buildtree():
+                    require_buildtree = self._buildtree_pull_required([element])
+                    # Attempt a pull queue for the given element if remote and context allow it
+                    if require_buildtree:
+                        self._message(MessageType.INFO, "Attempting to fetch missing artifact buildtree")
+                        self._scheduler.clear_queues()
+                        self._add_queue(PullQueue(self._scheduler))
+                        self._enqueue_plan(require_buildtree)
+                        self._run()
+                        # Now check if the buildtree was successfully fetched
+                        if element._cached_buildtree():
+                            buildtree = True
+
+                    if not buildtree:
+                        message = "Buildtree is not cached locally or in available remotes"
+                        if usebuildtree == "always":
+                            raise StreamError(message)
+
+                        self._message(MessageType.INFO, message + ", shell will be loaded without it")
+                else:
+                    buildtree = True
 
         buildtree = False
         # Check if we require a pull queue attempt, with given artifact state and context
         if usebuildtree:
-            if not element._cached_buildtree():
-                require_buildtree = self._buildtree_pull_required([element])
-                # Attempt a pull queue for the given element if remote and context allow it
-                if require_buildtree:
-                    self._message(MessageType.INFO, "Attempting to fetch missing artifact buildtree")
-                    self._scheduler.clear_queues()
-                    self._add_queue(PullQueue(self._scheduler))
-                    self._enqueue_plan(require_buildtree)
-                    self._run()
-                    # Now check if the buildtree was successfully fetched
-                    if element._cached_buildtree():
-                        buildtree = True
+            buildtree = element._cached_buildtree()
+            if not buildtree:
+                message = "Buildtree is not cached locally or in available remotes"
+                if usebuildtree == "always":
+                    raise StreamError(message)
 
-                if not buildtree:
-                    message = "Buildtree is not cached locally or in available remotes"
-                    if usebuildtree == "always":
-                        raise StreamError(message)
-
-                    self._message(MessageType.INFO, message + ", shell will be loaded without it")
-            else:
-                buildtree = True
+                self._message(MessageType.INFO, message + ", shell will be loaded without it")
 
         # Ensure we have our sources if we are launching a build shell
         if scope == _Scope.BUILD and not buildtree:
@@ -293,8 +320,7 @@ class Stream:
         #
         self._scheduler.clear_queues()
 
-        if self._artifacts.has_fetch_remotes():
-            self._add_queue(PullQueue(self._scheduler))
+        self._add_queue(PullQueue(self._scheduler))
 
         self._add_queue(FetchQueue(self._scheduler, skip_cached=True))
 
@@ -484,33 +510,38 @@ class Stream:
 
         self._pipeline.assert_consistent(elements)
 
-        # Check if we require a pull queue, with given artifact state and context
-        require_buildtrees = self._buildtree_pull_required(elements)
-        if require_buildtrees:
-            self._message(MessageType.INFO, "Attempting to fetch missing artifact buildtrees")
-            self._add_queue(PullQueue(self._scheduler))
-            self._enqueue_plan(require_buildtrees)
+        if False:
+            # Check if we require a pull queue, with given artifact state and context
+            require_buildtrees = self._buildtree_pull_required(elements)
+            if require_buildtrees:
+                self._message(MessageType.INFO, "Attempting to fetch missing artifact buildtrees")
+                self._add_queue(PullQueue(self._scheduler))
+                self._enqueue_plan(require_buildtrees)
 
-        # Before we try to push the artifacts, ensure they're cached
-        cached_elements = []
-        uncached_elements = []
-        self._message(MessageType.INFO, "Verifying that elements are cached")
-        for element in elements:
-            if element._cached():
-                cached_elements.append(element)
-            else:
-                msg = "{} is not cached".format(element.name)
-                if self._context.sched_error_action != _SchedulerErrorAction.CONTINUE:
-                    raise StreamError("Push failed: " + msg)
+            # Before we try to push the artifacts, ensure they're cached
+            cached_elements = []
+            uncached_elements = []
+            self._message(MessageType.INFO, "Verifying that elements are cached")
+            for element in elements:
+                if element._cached():
+                    cached_elements.append(element)
+                else:
+                    msg = "{} is not cached".format(element.name)
+                    if self._context.sched_error_action != _SchedulerErrorAction.CONTINUE:
+                        raise StreamError("Push failed: " + msg)
 
-                self._message(MessageType.WARN, msg)
-                uncached_elements.append(element)
+                    self._message(MessageType.WARN, msg)
+                    uncached_elements.append(element)
 
-        if cached_elements:
+        if True: # cached_elements:
             self._scheduler.clear_queues()
+            # TODO previous behavior was to only pull missing buildtrees but not
+            # the main part of the artifact. not sure whether that really makes
+            # sense
+            self._add_queue(PullQueue(self._scheduler))
             push_queue = ArtifactPushQueue(self._scheduler)
             self._add_queue(push_queue)
-            self._enqueue_plan(cached_elements, queue=push_queue)
+            self._enqueue_plan(elements)
             self._run(announce_session=True)
 
         # If the user has selected to continue on error, fail the command
@@ -572,12 +603,13 @@ class Stream:
 
         self._check_location_writable(location, force=force, tar=tar)
 
-        uncached_elts = [elt for elt in elements if not elt._cached()]
-        if uncached_elts and pull:
+        # uncached_elts = [elt for elt in elements if not elt._cached()]
+        if True: # uncached_elts and pull:
             self._message(MessageType.INFO, "Attempting to fetch missing or incomplete artifact")
             self._scheduler.clear_queues()
-            self._add_queue(PullQueue(self._scheduler))
-            self._enqueue_plan(uncached_elts)
+            self._add_queue(PullQueue(self._scheduler, check_remotes=pull))
+            # self._enqueue_plan(uncached_elts)
+            self._enqueue_plan(elements)
             self._run(announce_session=True)
 
         try:

@@ -119,7 +119,7 @@ class Pipeline:
                 # We may already have Elements which are cached and have their runtimes
                 # cached, if this is the case, we should immediately notify their reverse
                 # dependencies.
-                element._update_ready_for_runtime_and_cached()
+                # element._update_ready_for_runtime_and_cached()
 
                 if task:
                     task.add_current_progress()
@@ -477,7 +477,7 @@ class _Planner:
             self.plan_element(dep, depth)
 
         # Dont try to plan builds of elements that are cached already
-        if not element._cached_success():
+        if True or not element._cached_success():
             for dep in element._dependencies(_Scope.BUILD, recurse=False):
                 self.plan_element(dep, depth + 1)
 
@@ -494,4 +494,5 @@ class _Planner:
         for index, item in enumerate(depth_sorted):
             item[0]._set_depth(index)
 
-        return [item[0] for item in depth_sorted if plan_cached or not item[0]._cached_success()]
+        # return [item[0] for item in depth_sorted if plan_cached or not item[0]._cached_success()]
+        return [item[0] for item in depth_sorted]

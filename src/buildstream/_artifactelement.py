@@ -78,6 +78,10 @@ class ArtifactElement(Element):
         artifact_element._initialize_state()
         cls.__instantiated_artifacts[ref] = artifact_element
 
+        # Side effect of calling Artifact.cached() is that the artifact
+        # proto is loaded, which is required for `get_dependency_artifact_names()`.
+        artifact_element._cached(allow_main_process=True)
+
         for dep_ref in artifact_element.get_dependency_artifact_names():
             dependency = ArtifactElement._new_from_artifact_name(dep_ref, context, task)
             artifact_element._add_build_dependency(dependency)

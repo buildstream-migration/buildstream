@@ -33,24 +33,26 @@ class PullQueue(Queue):
     complete_name = "Artifacts Pulled"
     resources = [ResourceType.DOWNLOAD, ResourceType.CACHE]
 
+    def __init__(self, scheduler, *, check_remotes=True):
+        super().__init__(scheduler)
+
+        self._check_remotes = check_remotes
+
     def get_process_func(self):
-        return PullQueue._pull_or_skip
+        if self._check_remotes:
+            return PullQueue._pull_or_skip
+        else:
+            return PullQueue._check
 
     def status(self, element):
         if not element._can_query_cache():
             return QueueStatus.PENDING
 
-        if element._pull_pending():
-            return QueueStatus.READY
-        else:
-            return QueueStatus.SKIP
+        return QueueStatus.READY
 
     def done(self, _, element, result, status):
 
-        if status is JobStatus.FAIL:
-            return
-
-        element._pull_done()
+        element._pull_done(status is JobStatus.OK, result)
 
     def register_pending_element(self, element):
         # Set a "can_query_cache"_callback for an element which is not
@@ -60,5 +62,16 @@ class PullQueue(Queue):
 
     @staticmethod
     def _pull_or_skip(element):
-        if not element._pull():
+        result = element._pull()
+        element.info("pull: {} {}".format(result, not result))
+        if not result:
             raise SkipJob(PullQueue.action_name)
+        return result
+
+    @staticmethod
+    def _check(element):
+        result = element._pull(check_remotes=False)
+        element.info("pull: {} {}".format(result, not result))
+        if not result:
+            raise SkipJob(PullQueue.action_name)
+        return result

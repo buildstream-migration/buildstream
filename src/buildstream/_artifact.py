@@ -396,10 +396,12 @@ class Artifact:
     # Returns:
     #     (bool): Whether artifact is in local cache
     #
-    def cached(self):
+    def cached(self, *, allow_main_process=False):
 
         if self._cached is not None:
             return self._cached
+
+        assert allow_main_process or not utils._is_main_process()
 
         context = self._context
 

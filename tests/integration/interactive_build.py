@@ -4,6 +4,7 @@
 import os
 import pexpect
 import pytest
+import sys
 
 from buildstream.testing import runcli
 from buildstream.testing._utils.site import HAVE_SANDBOX
@@ -29,7 +30,9 @@ def build_session(datafiles, element_name):
             "bst",
             ["--directory", project, "--config", config_file, "--no-colors", "build", element_name,],
             timeout=PEXPECT_TIMEOUT_SHORT,
+            encoding='utf-8'
         )
+        session.logfile = sys.stderr
         yield session
 
 

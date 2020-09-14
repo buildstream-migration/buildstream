@@ -34,6 +34,7 @@ from stat import S_ISDIR
 import subprocess
 from subprocess import TimeoutExpired
 import tempfile
+import threading
 import time
 import datetime
 import itertools
@@ -874,6 +875,7 @@ def _pretty_size(size, dec_places=0):
 # Return whether we are in the main process or not.
 #
 def _is_main_process():
+    return threading.current_thread() == threading.main_thread()
     assert _MAIN_PID is not None
     return os.getpid() == _MAIN_PID
 
