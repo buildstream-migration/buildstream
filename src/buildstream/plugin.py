@@ -498,8 +498,11 @@ class Plugin:
               # This will raise SourceError on its own
               self.call(... command which takes time ...)
         """
+
+        # Get the plugin kwargs and pass them along
+        plugin_kwargs = self._get_message_kwargs()
         with self.__context.messenger.timed_activity(
-            activity_name, element_name=self._get_full_name(), detail=detail, silent_nested=silent_nested
+            activity_name, detail=detail, silent_nested=silent_nested, **plugin_kwargs
         ):
             yield
 
@@ -693,6 +696,14 @@ class Plugin:
     def _get_full_name(self):
         return self.__full_name
 
+    # _get_message_kwargs():
+    #
+    # An abstract method for collecting arguments which should appear
+    # in every Message() issued by this plugin instance.
+    #
+    def _get_message_kwargs(self) -> dict:
+        return {"element_name": self._get_full_name()}
+
     #############################################################
     #                     Local Private Methods                 #
     #############################################################
@@ -718,8 +729,24 @@ class Plugin:
 
         return (exit_code, output)
 
+    # __message():
+    #
+    # The plugin level focal point for issuing messages.
+    #
+    # Args:
+    #    message_type (MessageType): The message type
+    #    brief (str): The brief message
+    #    kwargs: The remaining Message attributes
+    #
     def __message(self, message_type, brief, **kwargs):
-        message = Message(message_type, brief, element_name=self._get_full_name(), **kwargs)
+        #
+        # Merge the plugin kwargs with the explicitly passed kwargs, give
+        # precedence to the explicitly passed kwargs.
+        #
+        plugin_kwargs = self._get_message_kwargs()
+        plugin_kwargs.update(kwargs)
+
+        message = Message(message_type, brief, **plugin_kwargs)
         self.__context.messenger.message(message)
 
     def __note_command(self, output, *popenargs, **kwargs):

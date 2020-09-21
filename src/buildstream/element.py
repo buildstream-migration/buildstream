@@ -2449,6 +2449,17 @@ class Element(Plugin):
             self.__whitelist_regex = re.compile(expression)
         return self.__whitelist_regex.match(os.path.join(os.sep, path))
 
+    # _get_message_kwargs()
+    #
+    # Override Plugin._get_message_kwargs so that we include the cache keys
+    # in any messages issued by this element
+    #
+    def _get_message_kwargs(self) -> dict:
+        return {
+            "element_name": self._get_full_name(),
+            "element_key": self._get_display_key(),
+        }
+
     #############################################################
     #                   Private Local Methods                   #
     #############################################################
