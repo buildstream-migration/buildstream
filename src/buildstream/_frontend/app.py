@@ -447,19 +447,18 @@ class App:
     #
     # Args:
     #    element_name (str): The element's full name
-    #    element_key (tuple): The element's display key
+    #    display_key (_DisplayKey): The element's display key
     #
     # Returns:
     #    (str): The formatted prompt to display in the shell
     #
-    def shell_prompt(self, element_name, element_key):
-
-        _, key, dim = element_key
+    def shell_prompt(self, element_name, display_key):
 
         if self.colors:
+            dim_key = not display_key.strict
             prompt = (
                 self._format_profile.fmt("[")
-                + self._content_profile.fmt(key, dim=dim)
+                + self._content_profile.fmt(display_key.brief, dim=dim_key)
                 + self._format_profile.fmt("@")
                 + self._content_profile.fmt(element_name)
                 + self._format_profile.fmt(":")
@@ -468,7 +467,7 @@ class App:
                 + " "
             )
         else:
-            prompt = "[{}@{}:${{PWD}}]$ ".format(key, element_name)
+            prompt = "[{}@{}:${{PWD}}]$ ".format(display_key.brief, element_name)
 
         return prompt
 
@@ -703,8 +702,8 @@ class App:
                 if choice == "shell":
                     click.echo("\nDropping into an interactive shell in the failed build sandbox\n", err=True)
                     try:
-                        unique_id, element_key = element
-                        prompt = self.shell_prompt(full_name, element_key)
+                        unique_id, display_key = element
+                        prompt = self.shell_prompt(full_name, display_key)
                         self.stream.shell(
                             None, _Scope.BUILD, prompt, isolate=True, usebuildtree="always", unique_id=unique_id
                         )
