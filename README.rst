@@ -10,6 +10,9 @@ About
 .. image:: https://gitlab.com/BuildStream/buildstream/badges/master/pipeline.svg
    :target: https://gitlab.com/BuildStream/buildstream/commits/master
 
+.. image:: https://github.com/tbuildstream-migration/buildstream/workflows/Overnight%20Tests/badge.svg?branch=master
+   :target: https://github.com/buildstream-migration/buildstream/actions?query=workflow%3A%22Overnight+Tests%22+branch%3Amaster
+
 .. image:: https://gitlab.com/BuildStream/buildstream/badges/master/coverage.svg?job=coverage
    :target: https://gitlab.com/BuildStream/buildstream/commits/master
 
