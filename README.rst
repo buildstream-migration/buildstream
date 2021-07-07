@@ -1,11 +1,11 @@
 About
 -----
 
-.. image:: https://buildstream.gitlab.io/buildstream/_static/release.svg
-   :target: https://gitlab.com/BuildStream/buildstream/commits/bst-1
+.. image:: https://img.shields.io/github/v/release/buildstream-migration/buildstream
+   :target: https://github.com/buildstream-migration/buildstream/releases/latest
 
-.. image:: https://buildstream.gitlab.io/buildstream/_static/snapshot.svg
-   :target: https://gitlab.com/BuildStream/buildstream/commits/master
+.. image:: https://img.shields.io/github/v/release/buildstream-migration/buildstream?color=orange&label=snapshot&sort=semver
+   :target: https://github.com/buildstream-migration/buildstream/releases
 
 .. image:: https://gitlab.com/BuildStream/buildstream/badges/master/pipeline.svg
    :target: https://gitlab.com/BuildStream/buildstream/commits/master
