@@ -7,8 +7,14 @@ About
 .. image:: https://buildstream.gitlab.io/buildstream/_static/snapshot.svg
    :target: https://gitlab.com/BuildStream/buildstream/commits/master
 
-.. image:: https://gitlab.com/BuildStream/buildstream/badges/master/pipeline.svg
-   :target: https://gitlab.com/BuildStream/buildstream/commits/master
+.. image:: https://github.com/buildstream-migration/buildstream/workflows/PR%20Checks/badge.svg?branch=master
+   :target: https://github.com/buildstream-migration/buildstream/actions?query=workflow%3A%22PR+Checks%22+branch%3Amaster
+
+.. image:: https://github.com/buildstream-migration/buildstream/workflows/Merge%20actions/badge.svg?branch=master
+   :target: https://github.com/buildstream-migration/buildstream/actions?query=workflow%3A%22Merge+actions%22+branch%3Amaster
+
+.. image:: https://github.com/buildstream-migration/buildstream/workflows/Upload%20Release%20Asset/badge.svg
+   :target: https://github.com/buildstream-migration/buildstream/actions?query=workflow%3A%22Upload+Release+Asset%22
 
 .. image:: https://gitlab.com/BuildStream/buildstream/badges/master/coverage.svg?job=coverage
    :target: https://gitlab.com/BuildStream/buildstream/commits/master
