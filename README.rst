@@ -1,11 +1,11 @@
 About
 -----
 
-.. image:: https://buildstream.gitlab.io/buildstream/_static/release.svg
-   :target: https://gitlab.com/BuildStream/buildstream/commits/bst-1
+.. image:: https://buildstream-migration.github.io/buildstream/_static/release.svg
+   :target: https://github.com/buildstream-migration/buildstream/commits/bst-1
 
-.. image:: https://buildstream.gitlab.io/buildstream/_static/snapshot.svg
-   :target: https://gitlab.com/BuildStream/buildstream/commits/master
+.. image:: https://buildstream-migration.github.io/buildstream/_static/snapshot.svg
+   :target: https://github.com/buildstream-migration/buildstream/commits/master
 
 .. image:: https://gitlab.com/BuildStream/buildstream/badges/master/pipeline.svg
    :target: https://gitlab.com/BuildStream/buildstream/commits/master
